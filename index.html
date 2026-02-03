@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Perpustakaan Digital</title>
+    <link rel="stylesheet" href="css/index.css"> 
+</head>
+<body>
+
+    <h2>Login</h2>
+    <div id="login">
+        <input id="username" placeholder="Username"><br>
+        <input id="password" type="password" placeholder="Password"><br>
+        <select id="role">
+            <option value="admin">Admin</option>
+            <option value="siswa">Siswa</option>
+        </select><br>
+        <button onclick="login()">Login</button>
+    </div>
+
+    <hr>
+
+    <div id="admin" class="hidden">
+        <h2>Admin Panel</h2>
+
+        <h3>Kelola Buku</h3>
+        <input id="b_title" placeholder="Judul">
+        <input id="b_author" placeholder="Penulis">
+        <input id="b_stock" type="number" placeholder="Stok">
+        <button onclick="addBook()">Tambah Buku</button>
+        <table id="books"></table>
+
+        <h3>Kelola Members</h3>
+        <input id="m_name" placeholder="Nama">
+        <input id="m_user" placeholder="Username">
+        <input id="m_pass" placeholder="Password">
+        <button onclick="addMember()">Tambah Member</button>
+        <table id="members"></table>
+
+        <h3>Kelola Transaksi</h3>
+        <table id="transactions"></table>
+
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div id="siswa" class="hidden">
+        <h2>Dashboard Siswa</h2>
+
+        <h3>Daftar Buku</h3>
+        <table id="books_siswa"></table>
+
+        <h3>Peminjaman Saya</h3>
+        <table id="my_trans"></table>
+
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role     = document.getElementById('role').value;
+
+            fetch('api/auth.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'login',
+                    username: username,
+                    password: password,
+                    role: role
+                })
+            })
+            .then(res => res.json())
+            .then(d => {
+                console.log(d);
+
+                if (d.status === 'success') {
+                    currentUser = d.data;
+                    document.getElementById('login').classList.add('hidden');
+
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('admin').classList.remove('hidden');
+                    } else {
+                        document.getElementById('siswa').classList.remove('hidden');
+                    }
+                } else {
+                    alert(d.message);
+                }
+            })
+            .catch(err => {
+                alert("FETCH ERROR");
+                console.error(err);
+            });
+        }
+
+        function logout() {
+            fetch('api/auth.php', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => location.reload());
+        }
+
+        function loadBooks() {
+            fetch('api/books.php')
+                .then(r => r.json())
+                .then(d => {
+                    books.innerHTML =
+                        '<tr><th>ID</th><th>Judul</th><th>Penulis</th><th>Stok</th></tr>';
+                    d.forEach(b => {
+                        books.innerHTML += `
+                            <tr>
+                                <td>${b.id}</td>
+                                <td>${b.title}</td>
+                                <td>${b.author}</td>
+                                <td>${b.stock}</td>
+                            </tr>`;
+                    });
+                });
+        }
+
+        function addBook() {
+            fetch('api/books.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title: b_title.value,
+                    author: b_author.value,
+                    stock: b_stock.value
+                })
+            }).then(() => loadBooks());
+        }
+
+        function loadMembers() {
+            fetch('api/members.php')
+                .then(r => r.json())
+                .then(d => {
+                    members.innerHTML =
+                        '<tr><th>ID</th><th>Nama</th><th>Username</th></tr>';
+                    d.forEach(m => {
+                        members.innerHTML += `
+                            <tr>
+                                <td>${m.id}</td>
+                                <td>${m.name}</td>
+                                <td>${m.username}</td>
+                            </tr>`;
+                    });
+                });
+        }
+
+        function addMember() {
+            fetch('api/members.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: m_name.value,
+                    username: m_user.value,
+                    password: m_pass.value
+                })
+            }).then(() => loadMembers());
+        }
+
+        function loadTransactions() {
+            fetch('api/transactions.php')
+                .then(r => r.json())
+                .then(d => {
+                    transactions.innerHTML =
+                        '<tr><th>ID</th><th>Buku</th><th>Nama</th><th>Status</th></tr>';
+                    d.forEach(t => {
+                        transactions.innerHTML += `
+                            <tr>
+                                <td>${t.id}</td>
+                                <td>${t.book_title}</td>
+                                <td>${t.user_name}</td>
+                                <td>${t.status}</td>
+                            </tr>`;
+                    });
+                });
+        }
+
+        function loadBooksSiswa() {
+            fetch('api/books.php')
+                .then(r => r.json())
+                .then(d => {
+                    books_siswa.innerHTML =
+                        '<tr><th>Judul</th><th>Penulis</th><th>Stok</th><th>Aksi</th></tr>';
+                    d.forEach(b => {
+                        books_siswa.innerHTML += `
+                            <tr>
+                                <td>${b.title}</td>
+                                <td>${b.author}</td>
+                                <td>${b.stock}</td>
+                                <td>
+                                    <button onclick="pinjam(${b.id})">Pinjam</button>
+                                </td>
+                            </tr>`;
+                    });
+                });
+        }
+
+        function pinjam(id) {
+            fetch('api/transactions.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    book_id: id
+                })
+            }).then(() => loadMyTrans());
+        }
+
+        function loadMyTrans() {
+            fetch('api/transactions.php?filter=dipinjam')
+                .then(r => r.json())
+                .then(d => {
+                    my_trans.innerHTML =
+                        '<tr><th>ID</th><th>Buku</th><th>Status</th></tr>';
+                    d.filter(t => t.user_name === currentUser.name)
+                        .forEach(t => {
+                            my_trans.innerHTML += `
+                                <tr>
+                                    <td>${t.id}</td>
+                                    <td>${t.book_title}</td>
+                                    <td>${t.status}</td>
+                                </tr>`;
+                        });
+                });
+        }
+    </script>
+
+</body>
+</html>
